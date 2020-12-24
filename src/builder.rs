@@ -6,7 +6,7 @@ use std::env;
 /// A builder to help create customized pixel buffers.
 pub struct PixelsBuilder<'req, 'win, W: HasRawWindowHandle> {
     request_adapter_options: Option<wgpu::RequestAdapterOptions<'req>>,
-    device_descriptor: wgpu::DeviceDescriptor,
+    device_descriptor: wgpu::DeviceDescriptor<'req>,
     backend: wgpu::BackendBit,
     width: u32,
     height: u32,
@@ -73,7 +73,7 @@ impl<'req, 'win, W: HasRawWindowHandle> PixelsBuilder<'req, 'win, W> {
     /// Add options for requesting a [`wgpu::Device`].
     pub fn device_descriptor(
         mut self,
-        device_descriptor: wgpu::DeviceDescriptor,
+        device_descriptor: wgpu::DeviceDescriptor<'req>,
     ) -> PixelsBuilder<'req, 'win, W> {
         self.device_descriptor = device_descriptor;
         self
@@ -222,7 +222,7 @@ impl<'req, 'win, W: HasRawWindowHandle> PixelsBuilder<'req, 'win, W> {
         let swap_chain = device.create_swap_chain(
             &surface,
             &wgpu::SwapChainDescriptor {
-                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
                 format: self.render_texture_format,
                 width: surface_size.width,
                 height: surface_size.height,
@@ -332,13 +332,14 @@ fn get_texture_format_size(texture_format: wgpu::TextureFormat) -> f32 {
         | wgpu::TextureFormat::Bc6hRgbSfloat
         | wgpu::TextureFormat::Bc7RgbaUnorm
         | wgpu::TextureFormat::Bc7RgbaUnormSrgb => 1.0,
+        _ => unimplemented!(),
     }
 }
 
 fn get_default_power_preference() -> wgpu::PowerPreference {
     env::var("PIXELS_HIGH_PERF").map_or_else(
         |_| {
-            env::var("PIXELS_LOW_POWER").map_or(wgpu::PowerPreference::Default, |_| {
+            env::var("PIXELS_LOW_POWER").map_or(wgpu::PowerPreference::default(), |_| {
                 wgpu::PowerPreference::LowPower
             })
         },

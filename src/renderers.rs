@@ -19,8 +19,8 @@ impl ScalingRenderer {
         texture_size: &wgpu::Extent3d,
         render_texture_format: wgpu::TextureFormat,
     ) -> Self {
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../shaders/vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../shaders/frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders/vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders/frag.spv"));
 
         // Create a texture sampler with nearest neighbor
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -35,6 +35,7 @@ impl ScalingRenderer {
             lod_max_clamp: 1.0,
             compare: None,
             anisotropy_clamp: None,
+            border_color: None,
         });
 
         // Create uniform buffer
@@ -58,24 +59,25 @@ impl ScalingRenderer {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        component_type: wgpu::TextureComponentType::Uint,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
+                        view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: true },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
                         min_binding_size: None,
                     },
                     count: None,
@@ -96,7 +98,11 @@ impl ScalingRenderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    },
                 },
             ],
         });
@@ -125,6 +131,7 @@ impl ScalingRenderer {
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
+                ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[wgpu::ColorStateDescriptor {
@@ -135,7 +142,7 @@ impl ScalingRenderer {
             }],
             depth_stencil_state: None,
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
+                index_format: None,
                 vertex_buffers: &[],
             },
             sample_count: 1,
@@ -156,6 +163,7 @@ impl ScalingRenderer {
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, render_target: &wgpu::TextureView) {
         // Draw the updated texture to the render target
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: render_target,
                 resolve_target: None,
